@@ -1,43 +1,38 @@
 import asyncio
 import time
+import os
+import shutil
+import json
 from modules.brain import ContentBrain
-from modules.asset_manager import AssetManager
+from modules.image_generator import ImageGenerator
 from modules.audio import AudioEngine
 from modules.composer import Composer
 from modules.thumbnail import ThumbnailGenerator
-import os
-import shutil
+from modules.uploader import YouTubeUploader
+
+CHANNEL_NAME = os.getenv("CHANNEL_NAME", "@MovieStoryteller")
+
 
 def clean_cache():
-    """Safely deletes temporary files"""
-    print("🧹 Cleaning up temporary files...")
-    folders_to_clean = [
+    print("🧹 Cleaning temp files...")
+    for folder in [
         os.path.join(os.getcwd(), "assets", "audio_clips"),
-        os.path.join(os.getcwd(), "assets", "video_clips"),
-        os.path.join(os.getcwd(), "assets", "temp")
-    ]
-    for folder in folders_to_clean:
+        os.path.join(os.getcwd(), "assets", "temp"),
+        os.path.join(os.getcwd(), "assets", "scene_images"),
+    ]:
         if not os.path.exists(folder):
             continue
-        if "assets" not in folder:
-            continue
-        for filename in os.listdir(folder):
-            file_path = os.path.join(folder, filename)
+        for f in os.listdir(folder):
+            fp = os.path.join(folder, f)
             try:
-                if os.path.isfile(file_path) or os.path.islink(file_path):
-                    os.unlink(file_path)
-                    print(f"   Deleted: {filename}")
-                elif os.path.isdir(file_path):
-                    shutil.rmtree(file_path)
-            except Exception as e:
-                print(f"   Failed to delete {file_path}: {e}")
-    print("✅ Workspace cleaned!")
+                os.unlink(fp) if os.path.isfile(fp) else shutil.rmtree(fp)
+            except Exception:
+                pass
+    print("✅ Cache cleared")
 
 
 async def create_one_short(short_number):
-    print(f"🚀 Starting New Short Generation #{short_number}...")
-
-    # 1. BRAIN
+    # ── 1. BRAIN — Generate story part ──────────────────────────────
     brain = ContentBrain()
     try:
         script_data = brain.generate_script()
@@ -48,7 +43,15 @@ async def create_one_short(short_number):
         print(f"❌ Brain Error: {e}")
         return False
 
-    # 2. AUDIO
+    scene = script_data[0] if isinstance(script_data, list) else script_data
+
+    movie_name  = scene.get("movie", "Movie")
+    part_number = scene.get("part_number", 1)
+    total_parts = scene.get("total_parts", 100)
+
+    print(f"\n🎬 {movie_name} — Part {part_number}/{total_parts}")
+
+    # ── 2. AUDIO ─────────────────────────────────────────────────────
     audio_engine = AudioEngine()
     try:
         script_data = await audio_engine.process_script(script_data)
@@ -56,82 +59,82 @@ async def create_one_short(short_number):
         print(f"❌ Audio Error: {e}")
         return False
 
-    # 3. ASSETS
-    asset_manager = AssetManager()
-    assets_map = asset_manager.get_videos(script_data)
+    # ── 3. AI IMAGES (replaces Pexels videos) ────────────────────────
+    image_gen   = ImageGenerator()
+    image_pairs = []
+    for s in script_data:
+        pair = image_gen.get_images_for_scene(s)
+        image_pairs.append(pair)
 
-    # 4. COMPOSER
+    # ── 4. COMPOSE VIDEO ─────────────────────────────────────────────
     composer = Composer()
-    final_scene_paths = composer.render_all_scenes(script_data, assets_map)
+    scene_paths = composer.render_all_scenes(script_data, image_pairs)
 
-    if not final_scene_paths:
-        print("❌ Failed to generate scenes")
+    if not scene_paths:
+        print("❌ No scenes rendered")
         return False
 
-    # 5. Final Video
-    composer.concatenate_with_transitions(final_scene_paths)
+    final_video = composer.concatenate_with_transitions(
+        scene_paths,
+        channel_name=CHANNEL_NAME,
+    )
     clean_cache()
-    print("✅ Short successfully created!")
 
-    # 6. THUMBNAIL GENERATION
-    print("🖼️ Generating Thumbnail...")
-    thumbnail_gen = ThumbnailGenerator()
-    thumbnail_path = thumbnail_gen.generate_thumbnail(
-        title=script_data[0].get('title', 'Financial Hack'),
-        script_text=script_data[0].get('text', ''),
-        short_number=short_number
+    if not final_video:
+        print("❌ Final video creation failed")
+        return False
+
+    # ── 5. THUMBNAIL ─────────────────────────────────────────────────
+    thumb_gen = ThumbnailGenerator()
+    thumbnail_path = thumb_gen.generate_thumbnail(
+        title        = scene.get("title", f"{movie_name} Part {part_number}"),
+        script_text  = scene.get("text", ""),
+        short_number = short_number,
+        image_prompt = scene.get("image_prompt_1", ""),
+        movie_name   = movie_name,
+        part_number  = part_number,
+        total_parts  = total_parts,
+        channel_name = CHANNEL_NAME,
     )
 
-    # 7. YOUTUBE UPLOAD with Thumbnail
+    # ── 6. YOUTUBE UPLOAD ────────────────────────────────────────────
     print("📤 Uploading to YouTube...")
-
     try:
-        from modules.uploader import YouTubeUploader
         uploader = YouTubeUploader()
 
-        scene = script_data[0] if isinstance(script_data, list) else script_data
-        script_text = scene.get('text', 'Financial Tip')
+        title = f"{movie_name} | Part {part_number} — Hindi Story | {CHANNEL_NAME}"
+        title = title[:100]
 
-        # Strong Hinglish SEO Title for Financial Niche
-        title = f"Paise Bachane ka Yeh Hack 😱 {script_text[:55]}... | Financial Secret"
+        script_text = scene.get("text", "")
+        description = f"""🎬 {movie_name} — Part {part_number} of {total_parts}
 
-        # Better Description for Financial Niche
-        description = f"""💰 Yeh Hack Aaj Hi Try Karo!
+{script_text[:300]}...
 
-{script_text[:500]}...
+📺 Poori movie series dekhne ke liye channel subscribe karo!
+🔔 Bell icon dabao taaki koi part miss na ho
 
-📌 Practical Financial Tips | Loan Jaldi Khatam | Business Growth | Side Income
+Part {part_number - 1} se continue ho rahi hai yeh kahani...
+Agle part ke liye subscribe karo! 👇
 
-👍 Like karo agar fayda laga
-🔔 Subscribe karo roz naye paisa tips ke liye
+#{movie_name.replace(' ', '')} #HindiMovieStory #Part{part_number} #Shorts #MovieSummary #HindiStory"""
 
-We do not own the video materials, and all credits belong to the respective owners.
- In case of copyright issues, please contact us immediately for further credit or removal.
-
-DISCLAIMER
-
-Copyright Disclaimer Under Section 107 of the Copyright Act 1976,
- allowance is made for "fair use" for purposes such as criticism, comment, news reporting, 
- teaching, scholarship, and research. Fair use is a use permitted by copyright statute 
- that might otherwise be infringing. Non-profit, educational,
- or personal use tips the balance in favor of fair use.
-
-#FinancialHacks #PaiseBachaneKeTarike #BusinessGrowth #SideIncome #MoneyTips #LoanKhatam #TradingTips"""
-
-        video_path = "assets/final/final_short.mp4"
+        tags = [
+            movie_name, f"Part {part_number}", "hindi movie story",
+            "movie summary hindi", "hindi shorts", "movie storyteller",
+            "hindi kahani", "movie series", "shorts"
+        ]
 
         video_id = uploader.upload(
-            video_path=video_path,
-            title=title[:100],
-            description=description,
-            thumbnail_path=thumbnail_path,
-            tags=["financialhacks", "paise bachane ke tarike", "business growth", "side income", "money tips", "loan khatam", "trading tips", "investment hacks"],
-            privacy="public"
+            video_path     = "assets/final/final_short.mp4",
+            title          = title,
+            description    = description,
+            thumbnail_path = thumbnail_path,
+            tags           = tags,
+            privacy        = "public",
         )
 
         if video_id:
-            print(f"✅ VIDEO UPLOADED SUCCESSFULLY!")
-            print(f"🔗 https://youtu.be/{video_id}")
+            print(f"✅ UPLOADED: https://youtu.be/{video_id}")
             return True
         else:
             print("❌ Upload failed")
@@ -143,11 +146,20 @@ Copyright Disclaimer Under Section 107 of the Copyright Act 1976,
 
 
 async def main():
-    print("🚀 CONTINUOUS PRACTICAL FINANCIAL HACKS MODE STARTED...")
-    print("Will keep generating fresh shorts until GitHub stops the job...\n")
+    # Load current state for display
+    state = {}
+    if os.path.exists("story_state.json"):
+        with open("story_state.json") as f:
+            state = json.load(f)
+
+    current_movie = state.get("current_movie", "Starting...")
+    current_part  = state.get("current_part", 0)
+    print(f"🎬 MOVIE STORYTELLER BOT STARTED")
+    print(f"📽️  Current: {current_movie} | Part {current_part}")
+    print("Generating continuously until GitHub stops the job...\n")
 
     short_count = 0
-    start_time = time.time()
+    start_time  = time.time()
 
     while True:
         short_count += 1
@@ -156,15 +168,15 @@ async def main():
         success = await create_one_short(short_number=short_count)
 
         if success:
-            print(f"✅ Short #{short_count} completed & uploaded!")
+            print(f"✅ Short #{short_count} done!")
         else:
-            print(f"⚠️ Short #{short_count} had some issues. Continuing...")
+            print(f"⚠️  Short #{short_count} had issues. Continuing...")
 
-        print(f"⏳ Waiting 15 minutes before next short...\n")
-        await asyncio.sleep(900)   # 15 minutes (upload limit ke liye safe)
+        print("⏳ Waiting 12 minutes...\n")
+        await asyncio.sleep(720)
 
-        if time.time() - start_time > 19800:
-            print("⏹️ Maximum runtime reached. Stopping now...")
+        if time.time() - start_time > 19800:   # 5.5 hours
+            print("⏹️  Max runtime reached. Stopping.")
             break
 
 
