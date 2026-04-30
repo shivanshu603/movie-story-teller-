@@ -116,6 +116,19 @@ async def create_one_short(short_number):
 Part {part_number - 1} se continue ho rahi hai yeh kahani...
 Agle part ke liye subscribe karo! 👇
 
+
+We do not own the video materials, and all credits belong to the respective owners. In case of copyright issues,
+please contact us immediately for further credit or removal.
+
+
+DISCLAIMER
+
+
+Copyright Disclaimer Under Section 107 of the Copyright Act 1976, allowance is made for "fair use" for purposes such as criticism,
+comment, news reporting, teaching, scholarship, and research. Fair use is a use permitted by 
+copyright statute that might otherwise be infringing. Non-profit, 
+educational, or personal use tips the balance in favor of fair use.
+
 #{movie_name.replace(' ', '')} #HindiMovieStory #Part{part_number} #Shorts #MovieSummary #HindiStory"""
 
         tags = [
