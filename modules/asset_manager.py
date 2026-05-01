@@ -1,150 +1,114 @@
 import os
 import requests
 import random
+from dotenv import load_dotenv
+
+load_dotenv()
+
 
 class AssetManager:
+    """
+    Downloads 2-3 short mood-matched video clips from Pexels
+    to mix between AI images for visual variety.
+    """
+
     def __init__(self):
-        # Your original API Key
-        self.api_key = "hZBjjYowDAauyvn9rioK5qYMHFdCq11rKnmWo4OQlXhZspsVuo2DkpCP"
-        self.base_url = "https://api.pexels.com/videos/search"
-        self.headers = {
-            "Authorization": self.api_key
-        }
-        
-        # Ensure download directory exists
-        self.assets_dir = os.path.join(os.getcwd(), "assets", "video_clips")
-        os.makedirs(self.assets_dir, exist_ok=True)
+        self.api_key   = os.getenv("PEXELS_API_KEY", "")
+        self.base_url  = "https://api.pexels.com/videos/search"
+        self.headers   = {"Authorization": self.api_key}
+        self.asset_dir = os.path.join(os.getcwd(), "assets", "video_clips")
+        os.makedirs(self.asset_dir, exist_ok=True)
 
-    def search_video(self, query, duration_min=4):
-        """
-        Searches Pexels for a portrait video matching the query.
-        Returns the download URL or None.
-        """
-        print(f"   🔍 Searching Pexels for: '{query}'...")
-        
-        params = {
-            "query": query,
-            "per_page": 5,        # Fetch top 5 results to pick from
-            "orientation": "portrait",
-            "size": "medium"      # 'medium' is usually HD ready, saves bandwidth
+    def _clean_query(self, raw):
+        bad = {
+            "cinematic","asmr","satisfying","mysterious","dramatic","epic",
+            "footage","clip","video","stock","style","mood",
         }
-        
-        try:
-            response = requests.get(self.base_url, headers=self.headers, params=params, timeout=10)
-            if response.status_code != 200:
-                print(f"      ⚠️ API Error: {response.status_code}")
-                return None
-                
-            data = response.json()
-            
-            if not data.get('videos'):
-                # Retry strategy: Simplify query if complex query fails
-                if " " in query:
-                    simple_query = query.split()[-1] # Try last word (usually the noun)
-                    print(f"      ⚠️ No results. Retrying with '{simple_query}'...")
-                    return self.search_video(simple_query)
-                return None
-            
-            # Filter logic: Prefer videos that aren't too short (at least 4 seconds)
-            valid_videos = [v for v in data['videos'] if v['duration'] >= duration_min]
-            
-            if not valid_videos:
-                valid_videos = data['videos'] # Fallback to whatever exists
-                
-            # Randomize selection
-            selected_video = random.choice(valid_videos)
-            
-            # Get best quality video file link
-            video_files = selected_video['video_files']
-            video_files.sort(key=lambda x: x['width'] * x['height'], reverse=True)
-            
-            download_link = video_files[0]['link']
-            return download_link
+        words   = raw.lower().split()
+        cleaned = [w for w in words if w not in bad and len(w) > 2 and w.isascii()]
+        return " ".join(cleaned[:4]) if cleaned else None
 
-        except Exception as e:
-            print(f"      ❌ Error searching Pexels: {e}")
+    def search_clip(self, query, duration_min=3):
+        clean = self._clean_query(query)
+        if not clean:
             return None
 
-    def download_video(self, url, filename):
-        """
-        Downloads the video content to a local file.
-        """
-        save_path = os.path.join(self.assets_dir, filename)
-        
-        # Caching strategy
-        if os.path.exists(save_path):
-            return save_path
+        word_list = clean.split()
+        # Try progressively shorter queries
+        attempts = [" ".join(word_list[:n]) for n in range(len(word_list), 0, -1)]
 
+        for q in attempts:
+            try:
+                resp = requests.get(
+                    self.base_url,
+                    headers=self.headers,
+                    params={"query": q, "per_page": 10, "orientation": "portrait"},
+                    timeout=10,
+                )
+                if resp.status_code != 200:
+                    continue
+                videos = resp.json().get("videos", [])
+                valid  = [v for v in videos if v.get("duration", 0) >= duration_min
+                          and v.get("height", 0) > v.get("width", 1)]
+                if not valid:
+                    valid = videos
+                if not valid:
+                    continue
+
+                chosen = random.choice(valid)
+                files  = chosen.get("video_files", [])
+                port   = [f for f in files if f.get("height", 0) > f.get("width", 1)]
+                if not port:
+                    port = files
+                port.sort(key=lambda f: f.get("width", 0) * f.get("height", 0), reverse=True)
+                best = next((f for f in port if f.get("width", 9999) <= 1080), port[0])
+                print(f"      ✅ Pexels clip: '{q}' → {best.get('width')}x{best.get('height')}")
+                return best["link"]
+
+            except Exception as e:
+                print(f"      ⚠️ Pexels error for '{q}': {e}")
+                continue
+
+        return None
+
+    def download_clip(self, url, filename):
+        save_path = os.path.join(self.asset_dir, filename)
+        if os.path.exists(save_path) and os.path.getsize(save_path) > 10_000:
+            return save_path
         try:
-            with requests.get(url, stream=True, timeout=15) as r:
+            with requests.get(url, stream=True, timeout=30) as r:
                 r.raise_for_status()
-                with open(save_path, 'wb') as f:
-                    for chunk in r.iter_content(chunk_size=8192):
+                with open(save_path, "wb") as f:
+                    for chunk in r.iter_content(65536):
                         f.write(chunk)
             return save_path
         except Exception as e:
-            print(f"      ❌ Error downloading {filename}: {e}")
+            print(f"      ❌ Download failed: {e}")
             return None
 
-    def get_videos(self, script_data):
+    def get_mood_clips(self, scene):
         """
-        NEW LOGIC: Downloads TWO videos per scene (A and B).
-        Returns a list of tuples: [(path_a, path_b), (path_a, path_b), ...]
+        Download 2 mood-matched clips per scene using pexels_mood queries.
+        Returns list of local file paths (may be empty if Pexels key missing).
         """
-        print("🎥 Starting Double-Feature Video Download...")
-        video_pairs = []
+        if not self.api_key:
+            print("   ⚠️ No PEXELS_API_KEY — skipping mood clips")
+            return []
 
-        for scene in script_data:
-            scene_id = scene['id']
-            
-            # 1. Get Search Terms
-            # Fallback to 'keywords' if visual_1/2 don't exist (compatibility mode)
-            query_a = scene.get('visual_1', scene.get('keywords', 'abstract'))
-            query_b = scene.get('visual_2', query_a) # Use A if B is missing
-            
-            # 2. Search & Download Clip A
-            url_a = self.search_video(query_a)
-            path_a = None
-            if url_a:
-                path_a = self.download_video(url_a, f"scene_{scene_id}_a.mp4")
-            
-            # 3. Search & Download Clip B
-            url_b = self.search_video(query_b)
-            path_b = None
-            if url_b:
-                path_b = self.download_video(url_b, f"scene_{scene_id}_b.mp4")
-            
-            # 4. Fallback Logic (Self-Healing)
-            # If B fails, use A twice. If A fails, use B twice.
-            if not path_a and path_b: 
-                path_a = path_b
-                print(f"      ⚠️ Scene {scene_id} Clip A missing. Using Clip B for both.")
-            if not path_b and path_a: 
-                path_b = path_a
-                print(f"      ⚠️ Scene {scene_id} Clip B missing. Using Clip A for both.")
+        part_num    = scene.get("part_number", 1)
+        mood_queries = scene.get("pexels_moods", [])
 
-            # 5. Final Check
-            if path_a and path_b:
-                video_pairs.append((path_a, path_b))
-                print(f"   ✅ Scene {scene_id} Ready (A + B).")
-            else:
-                print(f"   ❌ Scene {scene_id} Completely Failed (No videos found).")
-                video_pairs.append(None)
+        if not mood_queries:
+            return []
 
-        return video_pairs
+        print(f"   🎥 Fetching {len(mood_queries)} mood clips for Part {part_num}...")
+        paths = []
 
-# --- TESTING ---
-if __name__ == "__main__":
-    manager = AssetManager()
-    
-    # Test with new dual-visual format
-    test_script = [
-        {
-            "id": 1, 
-            "visual_1": "cyberpunk city neon", 
-            "visual_2": "hacker typing computer"
-        }
-    ]
-    
-    results = manager.get_videos(test_script)
-    print("🎥 Assets Downloaded:", results)
+        for i, query in enumerate(mood_queries[:2]):  # max 2 clips
+            url  = self.search_clip(query)
+            if url:
+                path = self.download_clip(url, f"mood_{part_num}_{i+1}.mp4")
+                if path:
+                    paths.append(path)
+
+        return paths
