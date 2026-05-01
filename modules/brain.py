@@ -207,13 +207,13 @@ Return ONLY valid JSON:
     "text": "Full Hindi narration script (50-60 seconds when read aloud)",
     "hook_text": "Part {part_number}: [5 dramatic Hindi words]",
     "image_prompts": [
-      "Shot 1: [specific scene description] cinematic fantasy illustration, dramatic lighting, ultra detailed, 8k",
-      "Shot 2: [specific scene description] cinematic fantasy illustration, dramatic lighting, ultra detailed, 8k",
-      "Shot 3: [specific scene description] cinematic fantasy illustration, dramatic lighting, ultra detailed, 8k",
-      "Shot 4: [specific scene description] cinematic fantasy illustration, dramatic lighting, ultra detailed, 8k",
-      "Shot 5: [specific scene description] cinematic fantasy illustration, dramatic lighting, ultra detailed, 8k",
-      "Shot 6: [specific scene description] cinematic fantasy illustration, dramatic lighting, ultra detailed, 8k",
-      "Shot 7: [specific scene description] cinematic fantasy illustration, dramatic lighting, ultra detailed, 8k"
+      "Shot 1: [specific scene description] Disney Pixar 3D animated style, soft warm golden lighting, big expressive eyes, smooth textures, Pixar movie render quality, ultra detailed, 8k",
+      "Shot 2: [specific scene description] Disney Pixar 3D animated style, soft warm golden lighting, big expressive eyes, smooth textures, Pixar movie render quality, ultra detailed, 8k",
+      "Shot 3: [specific scene description] Disney Pixar 3D animated style, soft warm golden lighting, big expressive eyes, smooth textures, Pixar movie render quality, ultra detailed, 8k",
+      "Shot 4: [specific scene description] Disney Pixar 3D animated style, soft warm golden lighting, big expressive eyes, smooth textures, Pixar movie render quality, ultra detailed, 8k",
+      "Shot 5: [specific scene description] Disney Pixar 3D animated style, soft warm golden lighting, big expressive eyes, smooth textures, Pixar movie render quality, ultra detailed, 8k",
+      "Shot 6: [specific scene description] Disney Pixar 3D animated style, soft warm golden lighting, big expressive eyes, smooth textures, Pixar movie render quality, ultra detailed, 8k",
+      "Shot 7: [specific scene description] Disney Pixar 3D animated style, soft warm golden lighting, big expressive eyes, smooth textures, Pixar movie render quality, ultra detailed, 8k"
     ],
     "pexels_moods": ["3-4 word mood clip 1", "3-4 word mood clip 2"],
     "new_characters": ["new character names only"],
