@@ -89,7 +89,7 @@ All must be well-known with rich plot. NO TV series. NO repeats.
 
 Return ONLY a JSON array of 20 strings: ["Title 1", ..., "Title 20"]
 """
-        for model_name in ["gemini-2.5-flash", "gemini-2.5-flash-lite"]:
+        for model_name in ["gemini-2.5-flash", "gemini-2.5-flash-lite" , "gemini-1.5-flash" , "gemini-1.5-flash-8b" , "gemini-1.5-pro" , ]:
             try:
                 resp     = client.models.generate_content(
                     model=model_name, contents=prompt,
