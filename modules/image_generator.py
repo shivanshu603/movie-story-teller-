@@ -17,53 +17,53 @@ class ImageGenerator:
         os.makedirs(self.output_dir, exist_ok=True)
         self.base_url   = "https://image.pollinations.ai/prompt/"
 
-   def generate_image(self, prompt, filename, width=1080, height=1920, retries=3):
-    output_path = os.path.join(self.output_dir, filename)
+    def generate_image(self, prompt, filename, width=1080, height=1920, retries=3):
+        output_path = os.path.join(self.output_dir, filename)
 
-    if os.path.exists(output_path) and os.path.getsize(output_path) > 5000:
-        print(f"      📦 Cached: {filename}")
-        return output_path
+        if os.path.exists(output_path) and os.path.getsize(output_path) > 5000:
+            print(f"      📦 Cached: {filename}")
+            return output_path
 
-    enhanced = (
-        f"{prompt}, "
-        "cinematic lighting, ultra detailed, dramatic composition, "
-        "movie scene, 8k quality, professional photography, "
-        "Disney Pixar 3D animated style, soft warm golden lighting, "
-        "big expressive eyes, smooth textures, Pixar movie render quality, ultra detailed, 8k"
-    )
+        enhanced = (
+            f"{prompt}, "
+            "cinematic lighting, ultra detailed, dramatic composition, "
+            "movie scene, 8k quality, professional photography, "
+            "Disney Pixar 3D animated style, soft warm golden lighting, "
+            "big expressive eyes, smooth textures, Pixar movie render quality, ultra detailed, 8k"
+        )
 
-    encoded = urllib.parse.quote(enhanced)
+        encoded = urllib.parse.quote(enhanced)
 
-    url = (
-        f"{self.base_url}{encoded}"
-        f"?width={width}&height={height}&nologo=true&enhance=true"
-    )
+        url = (
+            f"{self.base_url}{encoded}"
+            f"?width={width}&height={height}&nologo=true&enhance=true"
+        )
 
-    for attempt in range(retries):
-        try:
-            print(f"      🎨 [{filename}] attempt {attempt+1}")
-            resp = requests.get(url, timeout=90)
+        for attempt in range(retries):
+            try:
+                print(f"      🎨 [{filename}] attempt {attempt+1}")
+                resp = requests.get(url, timeout=90)
 
-            if resp.status_code == 200 and len(resp.content) > 5000:
-                img = Image.open(BytesIO(resp.content)).convert("RGB")
+                if resp.status_code == 200 and len(resp.content) > 5000:
+                    img = Image.open(BytesIO(resp.content)).convert("RGB")
 
-                if img.size != (width, height):
-                    img = img.resize((width, height), Image.LANCZOS)
+                    if img.size != (width, height):
+                        img = img.resize((width, height), Image.LANCZOS)
 
-                img.save(output_path, "JPEG", quality=92)
+                    img.save(output_path, "JPEG", quality=92)
 
-                print(f"      ✅ Saved ({os.path.getsize(output_path)//1024} KB): {filename}")
-                return output_path
-            else:
-                print(f"      ⚠️ Bad response {resp.status_code}")
+                    print(f"      ✅ Saved ({os.path.getsize(output_path)//1024} KB): {filename}")
+                    return output_path
+                else:
+                    print(f"      ⚠️ Bad response {resp.status_code}")
+                    time.sleep(4)
+
+            except Exception as e:
+                print(f"      ⚠️ Attempt {attempt+1} error: {e}")
                 time.sleep(4)
 
-        except Exception as e:
-            print(f"      ⚠️ Attempt {attempt+1} error: {e}")
-            time.sleep(4)
-
-    print(f"      ❌ Failed: {filename}")
-    return None
+        print(f"      ❌ Failed: {filename}")
+        return None
 
     def get_images_for_scene(self, scene):
         """
