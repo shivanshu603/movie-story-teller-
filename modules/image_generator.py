@@ -26,8 +26,8 @@ class ImageGenerator:
 
         enhanced = (
             f"{prompt}, "
-            "cinematic lighting, ultra detailed, dramatic composition, "
-            "movie scene, 8k quality, professional photography and Disney Pixar 3D animated style, 
+            "cinematic lighting, ultra detailed, dramatic composition, and
+            movie scene, 8k quality, professional photography and Disney Pixar 3D animated style, 
             soft warm golden lighting, big expressive eyes, smooth textures, Pixar movie render quality, ultra detailed, 8k"
         )
         encoded = urllib.parse.quote(enhanced)
