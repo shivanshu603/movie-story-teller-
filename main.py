@@ -5,6 +5,7 @@ import shutil
 import json
 from modules.brain import ContentBrain
 from modules.image_generator import ImageGenerator
+from modules.asset_manager import AssetManager
 from modules.audio import AudioEngine
 from modules.composer import Composer
 from modules.thumbnail import ThumbnailGenerator
@@ -19,6 +20,7 @@ def clean_cache():
         os.path.join(os.getcwd(), "assets", "audio_clips"),
         os.path.join(os.getcwd(), "assets", "temp"),
         os.path.join(os.getcwd(), "assets", "scene_images"),
+        os.path.join(os.getcwd(), "assets", "video_clips"),
     ]:
         if not os.path.exists(folder):
             continue
@@ -32,7 +34,7 @@ def clean_cache():
 
 
 async def create_one_short(short_number):
-    # ── 1. BRAIN — Generate story part ──────────────────────────────
+    # ── 1. BRAIN ─────────────────────────────────────────────────────
     brain = ContentBrain()
     try:
         script_data = brain.generate_script()
@@ -43,12 +45,10 @@ async def create_one_short(short_number):
         print(f"❌ Brain Error: {e}")
         return False
 
-    scene = script_data[0] if isinstance(script_data, list) else script_data
-
+    scene       = script_data[0]
     movie_name  = scene.get("movie", "Movie")
     part_number = scene.get("part_number", 1)
     total_parts = scene.get("total_parts", 100)
-
     print(f"\n🎬 {movie_name} — Part {part_number}/{total_parts}")
 
     # ── 2. AUDIO ─────────────────────────────────────────────────────
@@ -59,82 +59,72 @@ async def create_one_short(short_number):
         print(f"❌ Audio Error: {e}")
         return False
 
-    # ── 3. AI IMAGES (replaces Pexels videos) ────────────────────────
-    image_gen   = ImageGenerator()
-    image_pairs = []
+    # ── 3. AI IMAGES (6-8 per scene) ─────────────────────────────────
+    image_gen        = ImageGenerator()
+    image_paths_list = []
     for s in script_data:
-        pair = image_gen.get_images_for_scene(s)
-        image_pairs.append(pair)
+        paths = image_gen.get_images_for_scene(s)
+        image_paths_list.append(paths)
 
-    # ── 4. COMPOSE VIDEO ─────────────────────────────────────────────
-    composer = Composer()
-    scene_paths = composer.render_all_scenes(script_data, image_pairs)
+    # ── 4. PEXELS MOOD CLIPS (2 per scene) ───────────────────────────
+    asset_manager   = AssetManager()
+    mood_clips_list = []
+    for s in script_data:
+        clips = asset_manager.get_mood_clips(s)
+        mood_clips_list.append(clips)
+
+    # ── 5. COMPOSE ───────────────────────────────────────────────────
+    composer    = Composer()
+    scene_paths = composer.render_all_scenes(
+        script_data, image_paths_list, mood_clips_list
+    )
 
     if not scene_paths:
         print("❌ No scenes rendered")
         return False
 
     final_video = composer.concatenate_with_transitions(
-        scene_paths,
-        channel_name=CHANNEL_NAME,
+        scene_paths, channel_name=CHANNEL_NAME,
     )
     clean_cache()
 
     if not final_video:
-        print("❌ Final video creation failed")
+        print("❌ Final video failed")
         return False
 
-    # ── 5. THUMBNAIL ─────────────────────────────────────────────────
-    thumb_gen = ThumbnailGenerator()
+    # ── 6. THUMBNAIL ─────────────────────────────────────────────────
+    thumb_gen      = ThumbnailGenerator()
     thumbnail_path = thumb_gen.generate_thumbnail(
         title        = scene.get("title", f"{movie_name} Part {part_number}"),
         script_text  = scene.get("text", ""),
         short_number = short_number,
-        image_prompt = scene.get("image_prompt_1", ""),
+        image_prompt = (scene.get("image_prompts") or [""])[0],
         movie_name   = movie_name,
         part_number  = part_number,
         total_parts  = total_parts,
         channel_name = CHANNEL_NAME,
     )
 
-    # ── 6. YOUTUBE UPLOAD ────────────────────────────────────────────
+    # ── 7. UPLOAD ─────────────────────────────────────────────────────
     print("📤 Uploading to YouTube...")
     try:
-        uploader = YouTubeUploader()
-
-        title = f"{movie_name} | Part {part_number} — Hindi Story | {CHANNEL_NAME}"
-        title = title[:100]
-
+        uploader    = YouTubeUploader()
+        title       = f"{movie_name} | Part {part_number} | Hindi Story | {CHANNEL_NAME}"[:100]
         script_text = scene.get("text", "")
+
         description = f"""🎬 {movie_name} — Part {part_number} of {total_parts}
 
 {script_text[:300]}...
 
 📺 Poori movie series dekhne ke liye channel subscribe karo!
-🔔 Bell icon dabao taaki koi part miss na ho
+🔔 Bell icon dabao — koi part miss mat karo!
 
-Part {part_number - 1} se continue ho rahi hai yeh kahani...
-Agle part ke liye subscribe karo! 👇
-
-
-We do not own the video materials, and all credits belong to the respective owners. In case of copyright issues,
-please contact us immediately for further credit or removal.
-
-
-DISCLAIMER
-
-
-Copyright Disclaimer Under Section 107 of the Copyright Act 1976, allowance is made for "fair use" for purposes such as criticism,
-comment, news reporting, teaching, scholarship, and research. Fair use is a use permitted by 
-copyright statute that might otherwise be infringing. Non-profit, 
-educational, or personal use tips the balance in favor of fair use.
-
-#{movie_name.replace(' ', '')} #HindiMovieStory #Part{part_number} #Shorts #MovieSummary #HindiStory"""
+#{movie_name.replace(' ','')} #HindiStory #Part{part_number} #Shorts #MovieSummary #HindiKahani"""
 
         tags = [
             movie_name, f"Part {part_number}", "hindi movie story",
             "movie summary hindi", "hindi shorts", "movie storyteller",
-            "hindi kahani", "movie series", "shorts"
+            "hindi kahani", "shorts", "movie series hindi"
         ]
 
         video_id = uploader.upload(
@@ -159,24 +149,21 @@ educational, or personal use tips the balance in favor of fair use.
 
 
 async def main():
-    # Load current state for display
     state = {}
     if os.path.exists("story_state.json"):
         with open("story_state.json") as f:
             state = json.load(f)
 
-    current_movie = state.get("current_movie", "Starting...")
-    current_part  = state.get("current_part", 0)
-    print(f"🎬 MOVIE STORYTELLER BOT STARTED")
-    print(f"📽️  Current: {current_movie} | Part {current_part}")
-    print("Generating continuously until GitHub stops the job...\n")
+    print(f"🎬 MOVIE STORYTELLER BOT")
+    print(f"📽️  Current: {state.get('current_movie','Starting...')} | Part {state.get('current_part',0)}")
+    print(f"🎥 Mode: 7 AI Images + Pexels Mood Clips + Fast Cuts\n")
 
     short_count = 0
     start_time  = time.time()
 
     while True:
         short_count += 1
-        print(f"\n🔄 === Generating Short #{short_count} ===\n")
+        print(f"\n🔄 === Short #{short_count} ===\n")
 
         success = await create_one_short(short_number=short_count)
 
@@ -188,8 +175,8 @@ async def main():
         print("⏳ Waiting 12 minutes...\n")
         await asyncio.sleep(720)
 
-        if time.time() - start_time > 19800:   # 5.5 hours
-            print("⏹️  Max runtime reached. Stopping.")
+        if time.time() - start_time > 19800:
+            print("⏹️  Max runtime. Stopping.")
             break
 
 
