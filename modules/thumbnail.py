@@ -9,7 +9,6 @@ W, H = 1080, 1920
 
 class ThumbnailGenerator:
 
-```
 def __init__(self):
     self.output_dir = os.path.join(os.getcwd(), "assets", "thumbnails")
     self.fonts_dir  = os.path.join(os.getcwd(), "assets", "fonts")
