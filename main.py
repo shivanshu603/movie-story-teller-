@@ -1,3 +1,4 @@
+
 import asyncio
 import time
 import os
@@ -74,9 +75,25 @@ async def create_one_short(short_number):
         mood_clips_list.append(clips)
 
     # ── 5. COMPOSE ───────────────────────────────────────────────────
-    composer    = Composer()
+    composer = Composer()
+
+    # Generate intro frame (same design as thumbnail)
+    # Use first AI image as background if available
+    first_img = (image_paths_list[0][0]
+                 if image_paths_list and image_paths_list[0] else None)
+    thumb_gen_early = ThumbnailGenerator()
+    intro_frame = thumb_gen_early.generate_intro_frame(
+        movie_name   = movie_name,
+        part_number  = part_number,
+        total_parts  = total_parts,
+        channel_name = CHANNEL_NAME,
+        bg_image_path = first_img,
+        short_number  = short_number,
+    )
+
     scene_paths = composer.render_all_scenes(
-        script_data, image_paths_list, mood_clips_list
+        script_data, image_paths_list, mood_clips_list,
+        intro_frame_path=intro_frame,
     )
 
     if not scene_paths:
@@ -118,20 +135,6 @@ async def create_one_short(short_number):
 
 📺 Poori movie series dekhne ke liye channel subscribe karo!
 🔔 Bell icon dabao — koi part miss mat karo!
-
-
-We do not own the video materials, and all credits belong to the respective owners. In case of copyright issues, 
-please contact us immediately for further credit or removal.
-
-
-DISCLAIMER
-
-
-Copyright Disclaimer Under Section 107 of the Copyright Act 1976, allowance is made for "fair use"
-for purposes such as criticism, comment, news reporting, teaching, scholarship, and research. Fair use is a use permitted by
-copyright statute that might otherwise be infringing.
-Non-profit, educational, or personal use tips the balance in favor of fair use.
-
 
 #{movie_name.replace(' ','')} #HindiStory #Part{part_number} #Shorts #MovieSummary #HindiKahani"""
 
