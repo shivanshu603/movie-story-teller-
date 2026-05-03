@@ -207,8 +207,15 @@ PART 1 — THE BEGINNING:
 - Introduce the movie world and main character vividly
 - Show what is missing or wrong in the protagonist's life
 - Build curiosity — make viewers desperate for Part 2
-- Since this is Part 1, you MUST describe each character's appearance
-  and personality in detail (this will be saved for future consistency)
+- You MUST describe each character's appearance and personality in detail
+  (saved for consistency across all 100 parts)
+
+CHARACTER VARIETY RULE:
+Real movies have MANY characters. From Part 1 introduce the full cast:
+- Main protagonist with full description
+- At least 2 supporting characters with their own personality
+- Hint at the villain or main antagonist
+- Show the world through multiple perspectives
 """
         elif part_number == PARTS_PER_MOVIE:
             movies   = self.movies_data["movies"]
@@ -216,19 +223,30 @@ PART 1 — THE BEGINNING:
             arc_instruction = f"""
 PART {PARTS_PER_MOVIE} — GRAND FINALE:
 - Resolve ALL story threads with emotional satisfaction
-- Give every major character their deserved ending
+- Give EVERY character — hero, villain, all supporting cast — their deserved ending
 - The final scene must be unforgettable
 - LAST 2 LINES MUST BE:
   "Yeh thi '{movie_name}' ki poori kahani..."
   "Ab shuru hogi '{nxt}' ki kahani — subscribe karo!"
+
+CHARACTER VARIETY: All major characters must appear in the finale.
 """
         else:
+            introduce_new = (part_number % 4 == 0) and progress_pct < 80
             arc_instruction = f"""
 PART {part_number} of {PARTS_PER_MOVIE} — Story is {progress_pct:.0f}% complete.
 - Continue EXACTLY from where last part ended — no gaps
-- {"Build world and characters" if progress_pct < 25 else "Rise tension and deepen relationships" if progress_pct < 50 else "Major twists and emotional peaks" if progress_pct < 75 else "Rush toward epic finale"}
+- {"Build world and introduce more of the full cast" if progress_pct < 25 else "Deepen all character relationships — hero, villain, supporting cast" if progress_pct < 50 else "Major twists — betrayal, sacrifice, revelation across all characters" if progress_pct < 75 else "Rush toward epic finale — all characters converging"}
 - End on a cliffhanger or emotional hook — make them NEED Part {part_number + 1}
 - Do NOT repeat events already covered
+
+CHARACTER VARIETY RULE — CRITICAL:
+Movies have LARGE casts. Rotate through ALL characters — not just the main hero:
+- Give screen time to villain/antagonist — show THEIR perspective and motivation
+- Include supporting and side characters — they have their own story
+- Show characters INTERACTING — dialogue, conflict, friendship, rivalry
+- Every character must feel ALIVE, not just background
+{"- INTRODUCE A NEW CHARACTER this part who has not appeared yet" if introduce_new else "- Show a completely new side of an existing character we haven't seen"}
 """
 
         prompt = f"""
