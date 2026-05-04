@@ -21,7 +21,7 @@
     "Avengers Endgame",
     "Avengers Infinity War"
   ],
-  "parts_per_movie": 100,
+  "parts_per_movie": 50,
   "current_movie_index": 0,
   "auto_expand": true
 }
